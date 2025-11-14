@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSupabaseClient } from "@/lib/auth";
 
+export const runtime = "nodejs";
+
 export async function GET(request: NextRequest) {
   const nonce = request.nextUrl.searchParams.get("nonce");
 
@@ -11,7 +13,9 @@ export async function GET(request: NextRequest) {
   const supabase = await getServerSupabaseClient();
   const { data, error } = await supabase
     .from("login_nonces")
-    .select("consumed_at, redirect_path, telegram_user_id")
+    .select(
+      "consumed_at, redirect_path, telegram_user_id, session_access_token, session_refresh_token, session_expires_at, session_token_type",
+    )
     .eq("nonce", nonce)
     .maybeSingle();
 
@@ -24,7 +28,11 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ status: "not-found" }, { status: 404 });
   }
 
-  if (!data.consumed_at) {
+  if (
+    !data.consumed_at ||
+    !data.session_access_token ||
+    !data.session_refresh_token
+  ) {
     return NextResponse.json({ status: "pending" }, { status: 202 });
   }
 
@@ -32,6 +40,10 @@ export async function GET(request: NextRequest) {
     status: "ready",
     telegramUserId: data.telegram_user_id,
     redirectPath: data.redirect_path,
+    accessToken: data.session_access_token,
+    refreshToken: data.session_refresh_token,
+    expiresAt: data.session_expires_at,
+    tokenType: data.session_token_type ?? "bearer",
   });
 }
 

@@ -34,6 +34,8 @@ NEXT_PUBLIC_ROOT_DOMAIN=localhost
 NEXT_PUBLIC_APP_DOMAIN=localhost:3000
 TELEGRAM_BOT_TOKEN=your-telegram-bot-token
 TELEGRAM_WEBHOOK_SECRET=your-webhook-secret
+TELEGRAM_STUDENT_EMAIL_DOMAIN=students.localhost
+TELEGRAM_STUDENT_PASSWORD_SECRET=change-me
 ```
 
 **Where to find these values:**
@@ -42,6 +44,8 @@ TELEGRAM_WEBHOOK_SECRET=your-webhook-secret
 - `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`: The `anon` `public` key from Settings → API
 - `SUPABASE_SERVICE_ROLE_KEY`: The `service_role` `secret` key from Settings → API
 - `SUPABASE_PROJECT_REF`: The part before `.supabase.co` in your project URL (e.g., if URL is `https://abc123.supabase.co`, the ref is `abc123`)
+- `TELEGRAM_STUDENT_EMAIL_DOMAIN`: Optional. Domain used to mint synthetic student emails (defaults to `students.<ROOT_DOMAIN>`).
+- `TELEGRAM_STUDENT_PASSWORD_SECRET`: Secret pepper for deterministic student passwords derived from Telegram IDs (fallbacks to `SUPABASE_SERVICE_ROLE_KEY` if omitted).
 
 For local development you can leave `NEXT_PUBLIC_ROOT_DOMAIN` and `NEXT_PUBLIC_APP_DOMAIN` as supplied. Update them when deploying to staging/production.
 

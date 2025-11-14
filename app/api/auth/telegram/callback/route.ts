@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSupabaseClient, upsertTelegramStudent } from "@/lib/auth";
 import { telegramCallbackSchema } from "@/lib/schemas/login";
 
+export const runtime = "nodejs";
+
 export async function POST(request: NextRequest) {
   const payload = await request.json().catch(() => null);
 
