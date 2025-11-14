@@ -28,89 +28,69 @@
 - **CI/CD**: GitHub Actions (lint, test, type-check, preview deploy).
 - **Hosting**: Vercel for Next.js app with wildcard subdomain support (`*.platform.com`); Supabase managed instance in target region.
 - **Supabase CLI**: manage migrations, type generation, Edge Function deployment.
-- **Package Management**: Yarn workspaces for monorepo dependency management (Berry preferred, Classic supported).
+- **Package Management**: Yarn (single workspace) keeping frontend, schemas, and automation in one repo.
 
 ## Repository Structure
 
 ```
 /docs/                       # Architectural, product, and operational documentation
-  mvp.md
   auth-telegram.md
+  mvp.md
+  setup.md
   stack-structure.md
 
-/apps/
-  /web/                      # Next.js application (student + teacher UI)
-    /app/
-      /(public)/             # Marketing site routes
-      /(student)/            # Tenant subdomain routes (`[tenantSlug]`)
-      /(teacher)/            # Admin portal under `/teachers`
-      api/                   # Next.js route handlers if needed
-    /components/
-      ui/                    # Shared UI primitives
-      student/               # Student-specific components (dashboards, player)
-      teacher/               # Teacher admin widgets (tables, forms)
-    /hooks/                  # Custom React hooks (useTenant, useTelegramLogin)
-    /lib/
-      auth.ts                # Supabase client setup, session helpers
-      tenant.ts              # Subdomain parsing, tenant context logic
-      supabase.ts            # Supabase client factory
-      telemetry.ts           # Analytics helpers
-    /providers/              # Context providers (tenant, theme, query)
-    /styles/                 # Tailwind config, globals
-    /config/                 # Runtime config, feature flags
-    /tests/                  # Unit/integration tests
+/app/
+  /(public)/                 # Marketing site routes
+  /(student)/                # Tenant subdomain routes (`[tenantSlug]`)
+  /(teacher)/teachers/       # Teacher admin portal under `/teachers`
+  /api/auth/telegram/        # Nonce polling & callback handlers
 
-  /bot/                      # Telegram bot service
-    index.ts                 # Entry point (Telegraf)
-    handlers/                # `/start`, approval, announcements
-    services/                # Supabase queries, nonce validation
-    schemas/                 # Zod schemas for payload validation
-    tests/                   # Bot-specific unit tests
+/components/
+  /student/                  # Student-specific components (dashboards, player)
+  /teacher/                  # Teacher admin widgets (tables, forms)
+  /ui/                       # Shared UI primitives (buttons, inputs)
 
-  /edge/                     # Supabase Edge Functions (if separated from bot)
-    login-callback/
-    progress-hook/
-    cron/
+/hooks/                      # Custom React hooks (useTenant, useTelegramLogin)
 
-/packages/
-  /ui/                       # Shared UI component library (optional)
-  /schemas/                  # Shared Zod/TypeScript domain schemas
-  /types/                    # Generated Supabase types, domain models
-  /utils/                    # Cross-app utility functions (dates, formatting)
+/lib/
+  auth.ts                    # Supabase client setup, session helpers
+  schemas/                   # Shared Zod schemas
+  supabase/                  # Supabase client factory (browser/server)
+  telemetry.ts               # Analytics helpers
+  tenant.ts                  # Subdomain parsing, tenant context logic
 
-/config/
-  eslint/
-  tailwind/
-  tsconfig/
-
-/scripts/                    # Automation scripts (deploy, db reset)
-/supabase/                   # Supabase config, migrations, seed scripts
+/public/                     # Static assets, icons
+/supabase/                   # Supabase config, migrations, generated types
+/tests/                      # Vitest unit tests (future)
+playwright.config.ts         # Playwright E2E setup
+vitest.config.ts             # Vitest config
 ```
 
 ## Directory Notes & Responsibilities
 
-- **`apps/web/app/(student)`**: Handles tenant subdomain routing; uses middleware to resolve `tenantSlug` and inject context.
-- **`apps/web/app/(teacher)`**: Teacher admin portal at `/teachers/...` with email/MFA gate; connects to Supabase Auth directly.
-- **`apps/web/app/api`**: Reserve for API routes that must run close to the frontend (e.g., pre-signed URLs) if not handled by Edge Functions.
-- **`apps/bot`**: Deploy as serverless function (Vercel or Supabase Edge) responding to Telegram webhooks; minimal state, stateless handlers.
-- **`apps/edge`**: Optional separation for functions scheduled or triggered outside of bot context (e.g., cron reminders, progress ingest).
-- **`packages/types`**: Store generated Supabase types (`supabase gen types typescript --linked`) and domain models shared across apps.
-- **`supabase/`**: Keep SQL migrations versioned; use CLI to push changes. Include RLS policies aligning with tenant isolation.
+- **`app/(student)`**: Handles tenant subdomain routing; middleware resolves `tenantSlug` and TenantProvider exposes context.
+- **`app/(teacher)/teachers`**: Teacher admin portal at `/teachers/...` guarded by Supabase email/MFA auth.
+- **`app/api/auth/telegram`**: API routes for nonce polling and callback handling if Edge Functions are not used.
+- **`components/student` & `components/teacher`**: UI composed for each audience; rely on shared primitives in `components/ui`.
+- **`hooks/`**: Client hooks for tenant context, Telegram login polling, and React Query integration.
+- **`supabase/`**: SQL migrations, CLI config, and generated types. Align RLS policies with tenant isolation requirements.
 
 ## Environment & Configuration
 
-- `.env` files managed per app (`apps/web/.env.local`, `apps/bot/.env`) with common variables templated in `.env.example`.
+- `.env.local` at the repo root stores Supabase credentials, Telegram bot token, wildcard domain, and feature flags. Template values live in `.env.example`.
 - Central secrets stored via Vercel env + Supabase project settings.
-- Feature flags stored in Supabase table or config package to toggle features (e.g., DRM integration, assessments).
+- Feature flags stored in Supabase table or configuration helpers to toggle features (e.g., DRM integration, assessments).
 
 ## Development Workflow
 
-1. Run Supabase locally (`supabase start`) to access Postgres, storage, and auth emulator.
+1. Create a Supabase cloud project and configure environment variables (see `docs/setup.md`).
 2. Install dependencies via `yarn install`.
-3. Launch Next.js dev server (`yarn web dev`) with middleware handling wildcard subdomains (`*.localhost`).
-4. Start Telegram bot locally with tunneling (ngrok) for webhook testing.
-5. Use workspace lint/test commands (`yarn lint`, `yarn test`, `yarn bot dev`) across packages.
-6. Commit migrations and regenerate types before pushing.
+3. Apply database migrations to your cloud Supabase project (via Dashboard SQL Editor or CLI).
+4. Generate TypeScript types via `yarn supabase:types`.
+5. Launch Next.js dev server (`yarn dev`) with middleware handling wildcard subdomains (`*.localhost`).
+6. Expose a Telegram webhook (e.g., ngrok) for local bot testing when implementing callbacks.
+7. Run linting and tests via `yarn lint`, `yarn test`, `yarn test:e2e`.
+8. Commit migrations, then regenerate types via `yarn supabase:types` after schema changes.
 
 ## Future Extensions
 

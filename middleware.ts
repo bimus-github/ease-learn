@@ -1,8 +1,14 @@
 import { updateSession } from "@/lib/supabase/middleware";
+import { getTenantFromRequest } from "@/lib/tenant";
 import { type NextRequest } from "next/server";
 
 export async function middleware(request: NextRequest) {
-  return await updateSession(request);
+  const response = await updateSession(request);
+  const tenant = getTenantFromRequest(request);
+  if (tenant.tenantSlug) {
+    response.headers.set("x-tenant-slug", tenant.tenantSlug);
+  }
+  return response;
 }
 
 export const config = {

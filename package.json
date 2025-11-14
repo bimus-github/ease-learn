@@ -1,10 +1,17 @@
 {
+  "name": "course-management",
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "playwright test",
+    "supabase:link": "dotenv -e .env.local -- supabase link --project-ref $SUPABASE_PROJECT_REF",
+    "supabase:types": "dotenv -e .env.local -- supabase gen types typescript --schema public --project-id $SUPABASE_PROJECT_REF --out-dir supabase/types"
   },
   "dependencies": {
     "@radix-ui/react-checkbox": "^1.3.1",
@@ -13,26 +20,38 @@
     "@radix-ui/react-slot": "^1.2.2",
     "@supabase/ssr": "latest",
     "@supabase/supabase-js": "latest",
+    "@tanstack/react-query": "^5.59.11",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "lucide-react": "^0.511.0",
     "next": "latest",
+    "next-intl": "^3.17.2",
     "next-themes": "^0.4.6",
+    "plyr": "^3.7.8",
+    "plyr-react": "^5.1.1",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "tailwind-merge": "^3.3.0"
+    "react-hook-form": "^7.53.0",
+    "tailwind-merge": "^3.3.0",
+    "telegraf": "^4.16.3",
+    "zod": "^3.23.8"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
+    "@playwright/test": "^1.48.2",
+    "@testing-library/jest-dom": "^6.6.3",
+    "@testing-library/react": "^16.1.0",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "autoprefixer": "^10.4.20",
+    "dotenv-cli": "^11.0.0",
     "eslint": "^9",
     "eslint-config-next": "15.3.1",
     "postcss": "^8",
     "tailwindcss": "^3.4.1",
     "tailwindcss-animate": "^1.0.7",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^2.1.3"
   }
 }

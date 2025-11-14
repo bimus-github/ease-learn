@@ -1,6 +1,12 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { hasEnvVars } from "../utils";
+import {
+  authRoutes,
+  teacherRoutes,
+  publicTeacherRoutes,
+  publicRoutes,
+} from "@/constants/routes";
 
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({
@@ -47,15 +53,33 @@ export async function updateSession(request: NextRequest) {
   const { data } = await supabase.auth.getClaims();
   const user = data?.claims;
 
+  // Public routes that don't require authentication
+  const allPublicRoutes = [
+    publicRoutes.home,
+    ...publicTeacherRoutes,
+    authRoutes.confirm,
+    authRoutes.error,
+  ];
+
+  const isPublicRoute = allPublicRoutes.some((route) =>
+    request.nextUrl.pathname.startsWith(route)
+  );
+
+  // Allow public routes and student routes (they use Telegram auth)
+  const isStudentRoute =
+    request.nextUrl.pathname.startsWith("/") &&
+    !request.nextUrl.pathname.startsWith("/teachers") &&
+    !request.nextUrl.pathname.startsWith("/auth");
+
   if (
-    request.nextUrl.pathname !== "/" &&
+    !isPublicRoute &&
+    !isStudentRoute &&
     !user &&
-    !request.nextUrl.pathname.startsWith("/login") &&
-    !request.nextUrl.pathname.startsWith("/auth")
+    request.nextUrl.pathname.startsWith("/teachers")
   ) {
-    // no user, potentially respond by redirecting the user to the login page
+    // Redirect unauthenticated teacher routes to login
     const url = request.nextUrl.clone();
-    url.pathname = "/auth/login";
+    url.pathname = teacherRoutes.login;
     return NextResponse.redirect(url);
   }
 

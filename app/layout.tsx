@@ -1,6 +1,10 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import { Geist } from "next/font/google";
 import { ThemeProvider } from "next-themes";
+import { TenantProvider } from "@/hooks/useTenant";
+import { resolveTenantFromHost } from "@/lib/tenant";
+import { QueryProvider } from "@/components/providers/query-client-provider";
 import "./globals.css";
 
 const defaultUrl = process.env.VERCEL_URL
@@ -19,22 +23,34 @@ const geistSans = Geist({
   subsets: ["latin"],
 });
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const headerList = await headers();
+  const host = headerList.get("host") ?? "";
+  const tenant = resolveTenantFromHost(host);
+
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html
+      lang="uz"
+      suppressHydrationWarning
+      data-tenant={tenant.tenantSlug ?? "public"}
+    >
       <body className={`${geistSans.className} antialiased`}>
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="system"
-          enableSystem
-          disableTransitionOnChange
-        >
-          {children}
-        </ThemeProvider>
+        <TenantProvider tenantSlug={tenant.tenantSlug}>
+          <QueryProvider>
+            <ThemeProvider
+              attribute="class"
+              defaultTheme="system"
+              enableSystem
+              disableTransitionOnChange
+            >
+              {children}
+            </ThemeProvider>
+          </QueryProvider>
+        </TenantProvider>
       </body>
     </html>
   );

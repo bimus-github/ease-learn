@@ -1,0 +1,13 @@
+project_id = "course-management"
+
+[api]
+port = 54321
+
+[db]
+port = 54322
+shadow_port = 54323
+
+[studio]
+port = 54324
+
+
