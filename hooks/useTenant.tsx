@@ -29,4 +29,3 @@ export function TenantProvider({
 export function useTenant() {
   return useContext(TenantContext);
 }
-

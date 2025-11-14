@@ -31,7 +31,10 @@ async function pollNonce({ nonce }: PollArgs) {
   return { status: "ready" as const, ...(await response.json()) };
 }
 
-export function useTelegramLogin(botUsername: string) {
+export function useTelegramLogin() {
+  const tgBotBaseLink =
+    process.env.NEXT_PUBLIC_TG_BOT_BASE_LINK || "https://t.me/ease_learn_bot";
+
   const pollMutation = useMutation({
     mutationKey: ["telegram-login", "poll"],
     mutationFn: pollNonce,
@@ -40,9 +43,9 @@ export function useTelegramLogin(botUsername: string) {
   const getBotDeepLink = useCallback(
     ({ nonce }: StartLoginArgs) => {
       nonceOnlySchema.parse({ nonce });
-      return `https://t.me/${botUsername}?start=${nonce}`;
+      return `${tgBotBaseLink}?start=${nonce}`;
     },
-    [botUsername]
+    [tgBotBaseLink]
   );
 
   return {
