@@ -1,8 +1,24 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
+import { headers } from "next/headers";
 import { ThemeSwitcher } from "@/components/theme-switcher";
 import { teacherRoutes, publicRoutes } from "@/constants/routes";
+import { resolveTenantFromHost } from "@/lib/tenant";
 
-export default function PublicHome() {
+export default async function PublicHome() {
+  // Check if this is a tenant subdomain - if so, redirect to tenant route
+  // But only if we're on the root path (not already on /tenantSlug)
+  const headersList = await headers();
+  const host = headersList.get("host") ?? "";
+  const tenant = resolveTenantFromHost(host);
+  
+  // Only redirect if we have a tenant subdomain and we're on the root path
+  // This prevents redirect loops
+  if (tenant.tenantSlug) {
+    // Use a relative redirect to maintain the subdomain
+    redirect(`/${tenant.tenantSlug}`);
+  }
+
   return (
     <main className="min-h-screen flex flex-col items-center">
       <div className="flex-1 w-full flex flex-col gap-20 items-center">

@@ -22,10 +22,13 @@ Status snapshot of everything related to authentication. Use this to see what is
   - present approval UI with inline keyboard buttons
   - call backend callback API on approval
   - typing middleware shows typing indicator on every action
-- `[ ]` Student UI integration:
-  - invoke nonce creation endpoint
+- `[x]` Student UI integration:
+  - invoke nonce creation endpoint via `useTelegramLogin.startLoginFlow`
   - deep-link via `useTelegramLogin.getBotDeepLink`
   - start polling until session tokens are issued, then hydrate Supabase client
+  - `TelegramLoginButton` component with modern UI
+  - `LoginPrompt` wrapper for unauthenticated state
+  - Integrated into student dashboard with auth check
 - `[ ]` Student role enforcement:
   - finish `requireStudentAuth` (role + tenant checks)
   - add middleware enforcement / RLS policies so non-student sessions are rejected

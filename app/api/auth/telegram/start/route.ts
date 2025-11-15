@@ -7,6 +7,7 @@ import {
 } from "@/lib/auth/rate-limit";
 import { resolveTenantId } from "@/lib/auth/tenant-resolver";
 import { createNonceRequestSchema } from "@/lib/schemas/login";
+import { logAuthEvent, extractRequestMetadata } from "@/lib/auth/audit";
 
 export const runtime = "nodejs";
 
@@ -44,6 +45,20 @@ export async function POST(request: NextRequest) {
     // Check rate limiting
     const rateLimitResult = await checkNonceRateLimit(request, tenantId);
     if (rateLimitResult.rateLimited) {
+      const requestMetadata = extractRequestMetadata(request);
+      await logAuthEvent({
+        tenantId,
+        action: "telegram_login_failure",
+        resourceType: "tenant",
+        resourceId: tenantId,
+        payload: {
+          ...requestMetadata,
+          error: "Rate limit exceeded",
+          error_code: "rate_limit_exceeded",
+          rate_limited: true,
+          retry_after: rateLimitResult.retryAfter,
+        },
+      });
       return NextResponse.json(
         {
           error: "rate-limit-exceeded",
@@ -85,6 +100,18 @@ export async function POST(request: NextRequest) {
 
     if (error) {
       console.error("[telegram] Failed to create nonce", error);
+      const requestMetadata = extractRequestMetadata(request);
+      await logAuthEvent({
+        tenantId,
+        action: "telegram_login_failure",
+        resourceType: "tenant",
+        resourceId: tenantId,
+        payload: {
+          ...requestMetadata,
+          error: error.message,
+          error_code: "nonce_creation_failed",
+        },
+      });
       return NextResponse.json(
         { error: "database-error", message: "Failed to create nonce" },
         { status: 500 },
@@ -93,6 +120,21 @@ export async function POST(request: NextRequest) {
 
     // Generate Telegram bot deep link
     const botDeepLink = `${TG_BOT_BASE_LINK}?start=${nonce}`;
+
+    // Log login attempt
+    const requestMetadata = extractRequestMetadata(request);
+    await logAuthEvent({
+      tenantId,
+      action: "telegram_login_attempt",
+      resourceType: "login_nonce",
+      resourceId: data.id,
+      payload: {
+        ...requestMetadata,
+        nonce,
+        redirect_path: parsed.data.redirectPath,
+        tenant_slug: tenantResolution.tenantSlug,
+      },
+    });
 
     return NextResponse.json({
       nonce,

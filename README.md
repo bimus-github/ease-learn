@@ -90,3 +90,10 @@ docs/                       # Architecture & operational documentation
 - `docs/setup.md` — Full initialization guide.
 - `docs/stack-structure.md` — Architecture & directory responsibilities.
 - `docs/auth-telegram.md` — Detailed Telegram handshake and security controls.
+
+curl -X POST "https://api.telegram.org/bot8574601578:AAHBQM8ZLyGp4QA2WJu5KzhGDE01mtc--PE/setWebhook" \
+ -H "Content-Type: application/json" \
+ -d '{
+"url": "https://velvet-rockered-unradically.ngrok-free.dev/api/telegram/webhook",
+"secret_token": "your-webhook-secret-here"
+}'

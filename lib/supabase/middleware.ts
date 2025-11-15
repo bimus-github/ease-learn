@@ -1,5 +1,5 @@
 import { createServerClient } from "@supabase/ssr";
-import { NextResponse, type NextRequest } from "next/server";
+import { NextResponse, NextRequest } from "next/server";
 import { hasEnvVars } from "../utils";
 import {
   authRoutes,
@@ -7,8 +7,22 @@ import {
   publicTeacherRoutes,
   publicRoutes,
 } from "@/constants/routes";
+import { getTenantFromRequest } from "@/lib/tenant";
 
 export async function updateSession(request: NextRequest) {
+  // Detect tenant from subdomain FIRST, before any other processing
+  const tenant = getTenantFromRequest(request);
+
+  // Track if we need to rewrite the path
+  let shouldRewrite = false;
+  let rewrittenPath = request.nextUrl.pathname;
+
+  // If we have a tenant subdomain and we're on the root path, rewrite to tenant route
+  if (tenant.tenantSlug && request.nextUrl.pathname === "/") {
+    rewrittenPath = `/${tenant.tenantSlug}`;
+    shouldRewrite = true;
+  }
+
   let supabaseResponse = NextResponse.next({
     request,
   });
@@ -31,17 +45,17 @@ export async function updateSession(request: NextRequest) {
         },
         setAll(cookiesToSet) {
           cookiesToSet.forEach(({ name, value }) =>
-            request.cookies.set(name, value),
+            request.cookies.set(name, value)
           );
           supabaseResponse = NextResponse.next({
             request,
           });
           cookiesToSet.forEach(({ name, value, options }) =>
-            supabaseResponse.cookies.set(name, value, options),
+            supabaseResponse.cookies.set(name, value, options)
           );
         },
       },
-    },
+    }
   );
 
   // Do not run code between createServerClient and
@@ -53,6 +67,24 @@ export async function updateSession(request: NextRequest) {
   const { data } = await supabase.auth.getClaims();
   const user = data?.claims;
 
+  // If we need to rewrite the path, create a rewrite response
+  if (shouldRewrite) {
+    const url = request.nextUrl.clone();
+    url.pathname = rewrittenPath;
+    const rewrittenResponse = NextResponse.rewrite(url, { request });
+    // Copy all cookies from supabaseResponse to rewrittenResponse
+    const cookies = supabaseResponse.cookies.getAll();
+    cookies.forEach((cookie) => {
+      rewrittenResponse.cookies.set(cookie.name, cookie.value, cookie);
+    });
+    supabaseResponse = rewrittenResponse;
+  }
+
+  // Use rewritten path for route checks if we rewrote it
+  const pathnameToCheck = shouldRewrite
+    ? rewrittenPath
+    : request.nextUrl.pathname;
+
   // Public routes that don't require authentication
   const allPublicRoutes = [
     publicRoutes.home,
@@ -62,20 +94,34 @@ export async function updateSession(request: NextRequest) {
   ];
 
   const isPublicRoute = allPublicRoutes.some((route) =>
-    request.nextUrl.pathname.startsWith(route)
+    pathnameToCheck.startsWith(route)
   );
 
   // Allow public routes and student routes (they use Telegram auth)
   const isStudentRoute =
-    request.nextUrl.pathname.startsWith("/") &&
-    !request.nextUrl.pathname.startsWith("/teachers") &&
-    !request.nextUrl.pathname.startsWith("/auth");
+    pathnameToCheck.startsWith("/") &&
+    !pathnameToCheck.startsWith("/teachers") &&
+    !pathnameToCheck.startsWith("/auth") &&
+    !pathnameToCheck.startsWith("/api");
+
+  // Check student route access - verify role if user is authenticated
+  if (isStudentRoute && user && !isPublicRoute) {
+    // Get user role from app_metadata (lightweight check in middleware)
+    // Full role validation happens in requireStudentAuth
+    const userRole = (user.app_metadata as { role?: string })?.role;
+    if (userRole && userRole !== "student") {
+      // Non-student trying to access student routes - redirect to home
+      const url = request.nextUrl.clone();
+      url.pathname = publicRoutes.home;
+      return NextResponse.redirect(url);
+    }
+  }
 
   if (
     !isPublicRoute &&
     !isStudentRoute &&
     !user &&
-    request.nextUrl.pathname.startsWith("/teachers")
+    pathnameToCheck.startsWith("/teachers")
   ) {
     // Redirect unauthenticated teacher routes to login
     const url = request.nextUrl.clone();

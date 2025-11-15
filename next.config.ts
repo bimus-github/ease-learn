@@ -13,6 +13,7 @@ const nextConfig: NextConfig = {
   transpilePackages: ["plyr-react"],
   async rewrites() {
     return [
+      // Pass through all paths for tenant subdomains (handled by middleware)
       {
         source: "/:path*",
         destination: "/:path*",

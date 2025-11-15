@@ -2,6 +2,7 @@ import { Context } from "telegraf";
 import { getBot } from "@/lib/telegram/bot";
 import { getServerSupabaseClient } from "@/lib/auth";
 import { isValidNonce } from "@/lib/auth/nonce";
+import { logAuthEvent } from "@/lib/auth/audit";
 
 const APP_DOMAIN =
   process.env.NEXT_PUBLIC_APP_DOMAIN || "http://localhost:3000";
@@ -179,8 +180,34 @@ export function setupCallbackHandlers() {
 
       if (!response.ok) {
         const errorText = await response.text().catch(() => "Unknown error");
+        await logAuthEvent({
+          tenantId: nonceRecord.tenant_id,
+          action: "telegram_login_failure",
+          resourceType: "login_nonce",
+          resourceId: nonceRecord.id,
+          payload: {
+            telegram_user_id: telegramUserId,
+            telegram_username: telegramUsername,
+            nonce,
+            error: errorText,
+            error_code: "callback_api_failed",
+          },
+        });
         throw new Error(`Callback failed: ${response.status} ${errorText}`);
       }
+
+      // Log successful bot approval
+      await logAuthEvent({
+        tenantId: nonceRecord.tenant_id,
+        action: "telegram_bot_approval",
+        resourceType: "login_nonce",
+        resourceId: nonceRecord.id,
+        payload: {
+          telegram_user_id: telegramUserId,
+          telegram_username: telegramUsername,
+          nonce,
+        },
+      });
 
       await ctx.answerCbQuery("✅ Login approved! You can now return to your browser.");
       try {
@@ -207,6 +234,32 @@ export function setupCallbackHandlers() {
   });
 
   bot.action(/^cancel:(.+)$/, async (ctx: Context) => {
+    const match = ctx.match;
+    if (!match || !Array.isArray(match) || match.length < 2) {
+      await ctx.answerCbQuery("Error: Invalid request.");
+      return;
+    }
+
+    const nonce = match[1];
+    const telegramUserId = ctx.from?.id;
+    const telegramUsername = ctx.from?.username;
+
+    // Validate nonce to get tenant info for logging
+    const validation = await validateNonce(nonce);
+    if (validation) {
+      await logAuthEvent({
+        tenantId: validation.nonceRecord.tenant_id,
+        action: "telegram_login_cancelled",
+        resourceType: "login_nonce",
+        resourceId: validation.nonceRecord.id,
+        payload: {
+          telegram_user_id: telegramUserId,
+          telegram_username: telegramUsername,
+          nonce,
+        },
+      });
+    }
+
     await ctx.answerCbQuery("Login cancelled.");
     try {
       await ctx.editMessageText("❌ Login cancelled.");

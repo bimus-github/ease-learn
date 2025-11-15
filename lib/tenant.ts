@@ -48,6 +48,6 @@ export function resolveTenantFromHost(hostname: string): TenantResolution {
 
 export function getTenantFromRequest(request: NextRequest): TenantResolution {
   const hostHeader = request.headers.get("host");
+  console.log("hostHeader", hostHeader);
   return resolveTenantFromHost(hostHeader ?? "");
 }
-
