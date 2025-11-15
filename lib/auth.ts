@@ -307,22 +307,188 @@ export async function withTenantSession(tenantId: string) {
   cookieStore.set("tenant", tenantId);
 }
 
-export async function requireTeacherAuth() {
+type RequireTeacherAuthOptions = {
+  tenantId?: string | null;
+};
+
+export async function requireTeacherAuth(
+  options: RequireTeacherAuthOptions = {},
+): Promise<
+  | { error: "unauthorized"; redirect: string }
+  | { error: "invalid-role"; redirect: string }
+  | { error: "mfa-not-configured"; redirect: string }
+  | { error: "mfa-not-verified"; redirect: string }
+  | { error: "user-suspended"; redirect: string }
+  | { error: "tenant-not-owned"; redirect: string }
+  | { error: "email-not-verified"; redirect: string }
+  | {
+      session: Session;
+      user: User;
+      userRecord: {
+        role: string;
+        tenant_id: string | null;
+        tenant_owner_id: string | null;
+        status: string;
+        mfa_enabled: boolean;
+        email_verified: boolean;
+      };
+    }
+> {
   const session = await getServerSession();
   if (!session) {
     return { error: "unauthorized", redirect: teacherRoutes.login } as const;
   }
 
-  // TODO: Check user role is 'teacher' and MFA is enabled
-  // For now, just check if session exists
   const supabase = await getServerSupabaseClient();
-  const { data: user } = await supabase.auth.getUser();
+  const { data: authUser } = await supabase.auth.getUser();
 
-  if (!user.user) {
+  if (!authUser.user) {
     return { error: "unauthorized", redirect: teacherRoutes.login } as const;
   }
 
-  return { session, user: user.user } as const;
+  // Get user record from users table to check role, MFA status, and email verification
+  const { data: userRecord, error: userError } = await supabase
+    .from("users")
+    .select("id, role, tenant_id, tenant_owner_id, status, suspended_at, deleted_at, mfa_enabled, mfa_enabled_at, email_verified, email_verified_at")
+    .eq("id", authUser.user.id)
+    .maybeSingle();
+
+  if (userError || !userRecord) {
+    // User record doesn't exist or error fetching - deny access
+    return { error: "unauthorized", redirect: teacherRoutes.login } as const;
+  }
+
+  // Check role is 'teacher'
+  if (userRecord.role !== "teacher") {
+    return {
+      error: "invalid-role",
+      redirect: teacherRoutes.login,
+    } as const;
+  }
+
+  // Check user status is 'active'
+  if (
+    userRecord.status !== "active" ||
+    userRecord.suspended_at ||
+    userRecord.deleted_at
+  ) {
+    return {
+      error: "user-suspended",
+      redirect: teacherRoutes.login,
+    } as const;
+  }
+
+  // Check email verification
+  if (!userRecord.email_verified) {
+    return {
+      error: "email-not-verified",
+      redirect: teacherRoutes.verifyEmail,
+    } as const;
+  }
+
+  // Check MFA factors exist
+  const { data: factors, error: factorsError } = await supabase.auth.mfa.getFactors();
+
+  if (factorsError) {
+    console.error("[auth] Error fetching MFA factors", factorsError);
+    // If we can't check factors, check the users table flag
+    if (!userRecord.mfa_enabled) {
+      return {
+        error: "mfa-not-configured",
+        redirect: teacherRoutes.mfaSetup,
+      } as const;
+    }
+    // If mfa_enabled is true but we can't verify factors, allow access (graceful degradation)
+  } else {
+    // Check if any active factors exist
+    const activeFactors = factors?.totp?.filter((f) => f.status === "verified") ?? [];
+    if (activeFactors.length === 0 && !userRecord.mfa_enabled) {
+      return {
+        error: "mfa-not-configured",
+        redirect: teacherRoutes.mfaSetup,
+      } as const;
+    }
+  }
+
+  // Check session claims for MFA verification
+  // Supabase includes 'amr' (authentication method reference) in JWT claims
+  // Access via session.access_token or getClaims()
+  const { data: claimsData } = await supabase.auth.getClaims();
+  const amr = claimsData?.claims?.amr as string[] | undefined;
+  const hasMfaInSession = amr?.some((method) => method === "mfa") ?? false;
+
+  // If MFA is enabled but session doesn't have MFA verification, require re-authentication
+  if (userRecord.mfa_enabled && !hasMfaInSession) {
+    return {
+      error: "mfa-not-verified",
+      redirect: teacherRoutes.login,
+    } as const;
+  }
+
+  // Check tenant ownership
+  // If a specific tenantId is provided, verify the teacher owns it
+  if (options.tenantId) {
+    const { data: tenant, error: tenantError } = await supabase
+      .from("tenants")
+      .select("id, teacher_owner_id, status, deleted_at")
+      .eq("id", options.tenantId)
+      .maybeSingle();
+
+    if (tenantError || !tenant) {
+      return {
+        error: "tenant-not-owned",
+        redirect: teacherRoutes.login,
+      } as const;
+    }
+
+    // Verify the teacher owns this tenant
+    if (tenant.teacher_owner_id !== authUser.user.id) {
+      return {
+        error: "tenant-not-owned",
+        redirect: teacherRoutes.login,
+      } as const;
+    }
+
+    // Check tenant is active and not deleted
+    if (
+      tenant.status !== "active" ||
+      tenant.deleted_at
+    ) {
+      return {
+        error: "tenant-not-owned",
+        redirect: teacherRoutes.login,
+      } as const;
+    }
+  } else {
+    // If no specific tenantId provided, verify teacher owns at least one active tenant
+    const { data: ownedTenants, error: tenantsError } = await supabase
+      .from("tenants")
+      .select("id")
+      .eq("teacher_owner_id", authUser.user.id)
+      .eq("status", "active")
+      .is("deleted_at", null)
+      .limit(1);
+
+    if (tenantsError || !ownedTenants || ownedTenants.length === 0) {
+      return {
+        error: "tenant-not-owned",
+        redirect: teacherRoutes.login,
+      } as const;
+    }
+  }
+
+  return {
+    session,
+    user: authUser.user,
+    userRecord: {
+      role: userRecord.role,
+      tenant_id: userRecord.tenant_id,
+      tenant_owner_id: userRecord.tenant_owner_id,
+      status: userRecord.status,
+      mfa_enabled: userRecord.mfa_enabled,
+      email_verified: userRecord.email_verified,
+    },
+  };
 }
 
 function sanitizeDomain(domain: string) {

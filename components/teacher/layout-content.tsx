@@ -14,8 +14,12 @@ export function TeacherLayoutContent({ children }: TeacherLayoutContentProps) {
   const isPublicRoute = publicTeacherRoutes.some((route) =>
     pathname?.startsWith(route)
   );
+  
+  // Also allow MFA setup and email verification pages (they handle their own auth checks)
+  const isMfaSetupPage = pathname === "/teachers/mfa-setup";
+  const isVerifyEmailPage = pathname === "/teachers/verify-email";
 
-  if (isPublicRoute) {
+  if (isPublicRoute || isMfaSetupPage || isVerifyEmailPage) {
     return <>{children}</>;
   }
 

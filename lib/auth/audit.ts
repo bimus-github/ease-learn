@@ -11,7 +11,11 @@ export type AuditAction =
   | "telegram_login_timeout"
   | "telegram_login_cancelled"
   | "telegram_bot_approval"
-  | "telegram_bot_cancel";
+  | "telegram_bot_cancel"
+  | "teacher_invite_validation_success"
+  | "teacher_invite_validation_failure"
+  | "teacher_invite_acceptance_success"
+  | "teacher_invite_acceptance_failure";
 
 /**
  * Resource types that can be referenced in audit logs

@@ -15,6 +15,12 @@ export const teacherRoutes = {
   updatePassword: "/teachers/update-password",
   /** Teacher invite acceptance page */
   invite: "/teachers/invite",
+  /** MFA setup page */
+  mfaSetup: "/teachers/mfa-setup",
+  /** Email verification page */
+  verifyEmail: "/teachers/verify-email",
+  /** Session management page */
+  sessions: "/teachers/settings/sessions",
 } as const;
 
 /**

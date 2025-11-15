@@ -29,24 +29,24 @@ Status snapshot of everything related to authentication. Use this to see what is
   - `TelegramLoginButton` component with modern UI
   - `LoginPrompt` wrapper for unauthenticated state
   - Integrated into student dashboard with auth check
-- `[ ]` Student role enforcement:
+- `[x]` Student role enforcement:
   - finish `requireStudentAuth` (role + tenant checks)
   - add middleware enforcement / RLS policies so non-student sessions are rejected
-- `[ ]` Audit logging for Telegram login attempts, approvals, failures.
+- `[x]` Audit logging for Telegram login attempts, approvals, failures.
 
 ## Teacher Email + MFA
 
 - `[x]` Client-side forms exist for login, forgot password, and password update (`components/login-form.tsx`, `forgot-password-form.tsx`, `update-password-form.tsx`).
 - `[x]` `/teachers/*` pages mount those forms and the dashboard protects itself via `requireTeacherAuth`.
-- `[ ]` MFA enforcement:
+- `[x]` MFA enforcement:
   - require factors before returning from `requireTeacherAuth`
   - handle “MFA not configured” path with setup prompts
-- `[ ]` Role + tenant ownership checks in `requireTeacherAuth`.
-- `[ ]` Invite token backend:
+- `[x]` Role + tenant ownership checks in `requireTeacherAuth`.
+- `[x]` Invite token backend:
   - store tokens, validate on `/teachers/invite`
   - set password, assign tenant ownership, enable MFA bootstrap
-- `[ ]` Email verification enforcement before allowing teacher dashboard access.
-- `[ ]` Teacher session management UI (view/revoke sessions, show MFA status).
+- `[x]` Email verification enforcement before allowing teacher dashboard access.
+- `[x]` Teacher session management UI (view/revoke sessions, show MFA status).
 
 ## Shared Infra & Data Model
 

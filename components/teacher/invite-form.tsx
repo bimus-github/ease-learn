@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,9 +13,18 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { teacherRoutes } from "@/constants/routes";
+import { createClient } from "@/lib/supabase/client";
 
 type TeacherInviteFormProps = {
   token: string;
+};
+
+type TokenValidationResult = {
+  valid: boolean;
+  expired?: boolean;
+  used?: boolean;
+  error?: string;
+  user?: { id: string; email?: string };
 };
 
 export function TeacherInviteForm({ token }: TeacherInviteFormProps) {
@@ -23,7 +32,33 @@ export function TeacherInviteForm({ token }: TeacherInviteFormProps) {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [isValidating, setIsValidating] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [tokenStatus, setTokenStatus] = useState<TokenValidationResult | null>(null);
+
+  // Validate token on mount
+  useEffect(() => {
+    async function validateToken() {
+      try {
+        const response = await fetch(
+          `/api/auth/teacher/invite/validate?token=${encodeURIComponent(token)}`
+        );
+        const data = await response.json();
+        setTokenStatus(data);
+
+        if (!data.valid) {
+          setError(data.error || "Invalid invite link");
+        }
+      } catch (err) {
+        setError("Failed to validate invite link");
+        setTokenStatus({ valid: false, error: "Validation failed" });
+      } finally {
+        setIsValidating(false);
+      }
+    }
+
+    validateToken();
+  }, [token]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -42,27 +77,90 @@ export function TeacherInviteForm({ token }: TeacherInviteFormProps) {
     setIsLoading(true);
 
     try {
-      // TODO: Implement invite token validation and password setup
-      // This should:
-      // 1. Validate the invite token
-      // 2. Set the teacher's password
-      // 3. Prompt for MFA setup
-      // 4. Mark tenant as active
-      // 5. Redirect to dashboard
+      // Call accept endpoint
+      const response = await fetch("/api/auth/teacher/invite/accept", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          token,
+          password,
+        }),
+      });
 
-      console.log("Invite token:", token);
-      console.log("Setting up password...");
+      const data = await response.json();
 
-      // Placeholder - replace with actual API call
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      if (!data.success) {
+        setError(data.error || "Failed to set up account");
+        return;
+      }
 
-      router.push(teacherRoutes.dashboard);
+      // Hydrate session with returned tokens
+      if (data.session) {
+        const supabase = createClient();
+        const { error: sessionError } = await supabase.auth.setSession({
+          access_token: data.session.access_token,
+          refresh_token: data.session.refresh_token,
+        });
+
+        if (sessionError) {
+          setError("Failed to establish session. Please try logging in.");
+          return;
+        }
+      }
+
+      // Redirect to MFA setup
+      router.push(data.redirectTo || teacherRoutes.mfaSetup);
+      router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to set up account");
     } finally {
       setIsLoading(false);
     }
   };
+
+  if (isValidating) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-2xl">Validating Invite</CardTitle>
+          <CardDescription>Please wait while we validate your invite link...</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-center py-8">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (!tokenStatus?.valid) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-2xl">Invalid Invite</CardTitle>
+          <CardDescription>
+            {tokenStatus?.expired
+              ? "This invite link has expired"
+              : tokenStatus?.used
+              ? "This invite link has already been used"
+              : "This invite link is invalid"}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-muted-foreground">
+            {tokenStatus?.expired
+              ? "Please contact platform support to request a new invite link."
+              : tokenStatus?.used
+              ? "This invite has already been accepted. Please log in instead."
+              : "Please check your email for the correct invite link, or contact platform support."}
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card>
@@ -84,6 +182,7 @@ export function TeacherInviteForm({ token }: TeacherInviteFormProps) {
               required
               minLength={8}
               placeholder="At least 8 characters"
+              disabled={isLoading}
             />
           </div>
           <div className="space-y-2">
@@ -95,6 +194,7 @@ export function TeacherInviteForm({ token }: TeacherInviteFormProps) {
               onChange={(e) => setConfirmPassword(e.target.value)}
               required
               minLength={8}
+              disabled={isLoading}
             />
           </div>
           {error && (

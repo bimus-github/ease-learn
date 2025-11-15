@@ -10,7 +10,9 @@ export const metadata = {
 
 export default async function TeacherDashboard() {
   const authResult = await requireTeacherAuth();
-  if (authResult.error === "unauthorized") {
+  
+  // Handle all error types
+  if ("error" in authResult) {
     redirect(authResult.redirect);
   }
   return (
