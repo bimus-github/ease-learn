@@ -6,6 +6,7 @@ import {
   teacherRoutes,
   publicTeacherRoutes,
   publicRoutes,
+  adminRoutes,
 } from "@/constants/routes";
 import { getTenantFromRequest } from "@/lib/tenant";
 
@@ -91,18 +92,23 @@ export async function updateSession(request: NextRequest) {
     ...publicTeacherRoutes,
     authRoutes.confirm,
     authRoutes.error,
+    adminRoutes.login,
   ];
 
   const isPublicRoute = allPublicRoutes.some((route) =>
     pathnameToCheck.startsWith(route)
   );
 
+  // Check if route is admin route
+  const isAdminRoute = pathnameToCheck.startsWith("/admin");
+
   // Allow public routes and student routes (they use Telegram auth)
   const isStudentRoute =
     pathnameToCheck.startsWith("/") &&
     !pathnameToCheck.startsWith("/teachers") &&
     !pathnameToCheck.startsWith("/auth") &&
-    !pathnameToCheck.startsWith("/api");
+    !pathnameToCheck.startsWith("/api") &&
+    !pathnameToCheck.startsWith("/admin");
 
   // Check student route access - verify role if user is authenticated
   if (isStudentRoute && user && !isPublicRoute) {
@@ -120,6 +126,7 @@ export async function updateSession(request: NextRequest) {
   if (
     !isPublicRoute &&
     !isStudentRoute &&
+    !isAdminRoute &&
     !user &&
     pathnameToCheck.startsWith("/teachers")
   ) {
@@ -127,6 +134,27 @@ export async function updateSession(request: NextRequest) {
     const url = request.nextUrl.clone();
     url.pathname = teacherRoutes.login;
     return NextResponse.redirect(url);
+  }
+
+  // Check admin route access - verify authentication and role
+  if (isAdminRoute && !isPublicRoute && !user) {
+    // Redirect unauthenticated admin routes to login
+    const url = request.nextUrl.clone();
+    url.pathname = adminRoutes.login;
+    return NextResponse.redirect(url);
+  }
+
+  // Check admin route access - verify role if user is authenticated
+  if (isAdminRoute && !isPublicRoute && user) {
+    // Get user role from app_metadata (lightweight check in middleware)
+    // Full role validation happens in requireSuperAdminAuth
+    const userRole = (user.app_metadata as { role?: string })?.role;
+    if (userRole && userRole !== "platform_admin") {
+      // Non-platform-admin trying to access admin routes - redirect to home
+      const url = request.nextUrl.clone();
+      url.pathname = publicRoutes.home;
+      return NextResponse.redirect(url);
+    }
   }
 
   // IMPORTANT: You *must* return the supabaseResponse object as it is.

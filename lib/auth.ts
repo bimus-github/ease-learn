@@ -9,7 +9,7 @@ import {
   type SupabaseClient,
   type User,
 } from "@supabase/supabase-js";
-import { teacherRoutes, publicRoutes } from "@/constants/routes";
+import { teacherRoutes, publicRoutes, adminRoutes } from "@/constants/routes";
 import { logAuthEvent, extractRequestMetadata } from "@/lib/auth/audit";
 import type { NextRequest } from "next/server";
 
@@ -484,6 +484,120 @@ export async function requireTeacherAuth(
       role: userRecord.role,
       tenant_id: userRecord.tenant_id,
       tenant_owner_id: userRecord.tenant_owner_id,
+      status: userRecord.status,
+      mfa_enabled: userRecord.mfa_enabled,
+      email_verified: userRecord.email_verified,
+    },
+  };
+}
+
+export async function requireSuperAdminAuth(): Promise<
+  | { error: "unauthorized"; redirect: string }
+  | { error: "invalid-role"; redirect: string }
+  | { error: "user-suspended"; redirect: string }
+  | { error: "email-not-verified"; redirect: string }
+  | {
+      session: Session;
+      user: User;
+      userRecord: {
+        role: string;
+        status: string;
+        mfa_enabled: boolean;
+        email_verified: boolean;
+      };
+    }
+> {
+  const session = await getServerSession();
+  if (!session) {
+    return { error: "unauthorized", redirect: adminRoutes.login } as const;
+  }
+
+  const supabase = await getServerSupabaseClient();
+  const { data: authUser } = await supabase.auth.getUser();
+
+  if (!authUser.user) {
+    return { error: "unauthorized", redirect: adminRoutes.login } as const;
+  }
+
+  // Get user record from users table to check role, MFA status, and email verification
+  const { data: userRecord, error: userError } = await supabase
+    .from("users")
+    .select("id, role, status, suspended_at, deleted_at, mfa_enabled, mfa_enabled_at, email_verified, email_verified_at")
+    .eq("id", authUser.user.id)
+    .maybeSingle();
+
+  if (userError || !userRecord) {
+    // User record doesn't exist or error fetching - deny access
+    return { error: "unauthorized", redirect: adminRoutes.login } as const;
+  }
+
+  // Check role is 'platform_admin'
+  if (userRecord.role !== "platform_admin") {
+    return {
+      error: "invalid-role",
+      redirect: adminRoutes.login,
+    } as const;
+  }
+
+  // Check user status is 'active'
+  if (
+    userRecord.status !== "active" ||
+    userRecord.suspended_at ||
+    userRecord.deleted_at
+  ) {
+    return {
+      error: "user-suspended",
+      redirect: adminRoutes.login,
+    } as const;
+  }
+
+  // Check email verification
+  if (!userRecord.email_verified) {
+    return {
+      error: "email-not-verified",
+      redirect: teacherRoutes.verifyEmail,
+    } as const;
+  }
+
+  // MFA is optional for platform admins, but if enabled, we check session verification
+  if (userRecord.mfa_enabled) {
+    // Check MFA factors exist
+    const { data: factors, error: factorsError } = await supabase.auth.mfa.getFactors();
+
+    if (factorsError) {
+      console.error("[auth] Error fetching MFA factors", factorsError);
+      // If we can't check factors but mfa_enabled is true, we allow access (graceful degradation)
+      // Platform admins might have MFA configured but factor check failed
+    } else {
+      // Check if any active factors exist
+      const activeFactors = factors?.totp?.filter((f) => f.status === "verified") ?? [];
+      if (activeFactors.length === 0 && userRecord.mfa_enabled) {
+        // MFA is enabled but no active factors - this is a warning but we allow access
+        // Platform admins can still access if their account has mfa_enabled flag
+        console.warn("[auth] Platform admin has mfa_enabled but no active factors");
+      }
+    }
+
+    // Check session claims for MFA verification
+    // If MFA is enabled, we verify the session has MFA
+    const { data: claimsData } = await supabase.auth.getClaims();
+    const amr = claimsData?.claims?.amr as string[] | undefined;
+    const hasMfaInSession = amr?.some((method) => method === "mfa") ?? false;
+
+    // If MFA is enabled but session doesn't have MFA verification, require re-authentication
+    if (userRecord.mfa_enabled && !hasMfaInSession) {
+      return {
+        error: "unauthorized",
+        redirect: adminRoutes.login,
+      } as const;
+    }
+  }
+
+  return {
+    session,
+    user: authUser.user,
+    userRecord: {
+      role: userRecord.role,
       status: userRecord.status,
       mfa_enabled: userRecord.mfa_enabled,
       email_verified: userRecord.email_verified,

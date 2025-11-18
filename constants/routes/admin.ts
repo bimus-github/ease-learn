@@ -6,6 +6,8 @@
 export const adminRoutes = {
   /** Base admin portal route */
   base: "/admin",
+  /** Admin login page */
+  login: "/admin/login",
   /** Admin dashboard */
   dashboard: "/admin/dashboard",
   /** Tenant management */

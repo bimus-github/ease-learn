@@ -2,7 +2,7 @@ import { getServerSupabaseClient } from "@/lib/auth";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 /**
- * Audit log action types for Telegram authentication
+ * Audit log action types for Telegram authentication and admin operations
  */
 export type AuditAction =
   | "telegram_login_attempt"
@@ -15,12 +15,31 @@ export type AuditAction =
   | "teacher_invite_validation_success"
   | "teacher_invite_validation_failure"
   | "teacher_invite_acceptance_success"
-  | "teacher_invite_acceptance_failure";
+  | "teacher_invite_acceptance_failure"
+  | "tenant_suspended"
+  | "tenant_reactivated"
+  | "tenant_created"
+  | "tenant_updated"
+  | "user_suspended"
+  | "user_reactivated"
+  | "user_role_changed"
+  | "user_mfa_reset"
+  | "user_sessions_revoked"
+  | "settings_updated"
+  | "feature_flag_toggled"
+  | "branding_updated";
 
 /**
  * Resource types that can be referenced in audit logs
  */
-export type ResourceType = "login_nonce" | "user" | "tenant" | "session";
+export type ResourceType =
+  | "login_nonce"
+  | "user"
+  | "tenant"
+  | "session"
+  | "system_settings"
+  | "feature_flag"
+  | "branding_settings";
 
 /**
  * Payload structure for audit log entries
@@ -108,5 +127,36 @@ export function extractRequestMetadata(request: {
     ipAddress: ipAddress || undefined,
     userAgent,
   };
+}
+
+/**
+ * Admin-specific audit logging function
+ * Ensures actor_id is always set for admin actions
+ */
+export async function logAdminAction({
+  actorId,
+  action,
+  resourceType,
+  resourceId,
+  payload = {},
+  supabase,
+}: {
+  actorId: string;
+  action: AuditAction;
+  resourceType?: ResourceType;
+  resourceId?: string | null;
+  payload?: AuditPayload;
+  supabase?: SupabaseClient;
+}): Promise<void> {
+  // Use logAuthEvent but ensure actorId is always provided for admin actions
+  await logAuthEvent({
+    tenantId: null, // Platform admin actions are not tenant-scoped
+    actorId,
+    action,
+    resourceType,
+    resourceId: resourceId || undefined,
+    payload,
+    supabase,
+  });
 }
 
