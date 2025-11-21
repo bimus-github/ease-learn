@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { loginAdmin } from "@/supabase/servers/admin";
 
 export function AdminLoginForm() {
   const router = useRouter();
@@ -22,34 +23,13 @@ export function AdminLoginForm() {
     setError(null);
     setIsLoading(true);
 
-    const supabase = createClient();
-
     try {
-      const { error: signInError } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-
-      if (signInError) {
-        throw signInError;
-      }
-
-      const { data: userData, error: userError } = await supabase.auth.getUser();
-      if (userError || !userData.user) {
-        throw new Error("Failed to fetch user data.");
-      }
-
-      const role = (userData.user.app_metadata as { role?: string })?.role;
-      if (role !== "platform_admin") {
-        await supabase.auth.signOut();
-        setError("Platform admin access required. Please contact support if this is unexpected.");
-        return;
-      }
+      const user = await loginAdmin(email, password);
 
       router.push(adminRoutes.dashboard);
       router.refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to sign in.");
+      setError(err instanceof Error ? err.message : "Unable to sign in. Please try again.");
     } finally {
       setIsLoading(false);
     }

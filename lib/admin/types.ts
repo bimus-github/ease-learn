@@ -53,3 +53,21 @@ export type AuditLogFilters = {
   startDate?: string;
   endDate?: string;
 };
+
+/**
+ * Tenant invite lifecycle typing
+ */
+export type TenantInviteStatus = "pending" | "claimed" | "revoked" | "expired";
+
+export type TenantInviteRecord = {
+  id: string;
+  email: string;
+  token_hash: string;
+  status: TenantInviteStatus;
+  metadata: Record<string, unknown>;
+  expires_at: string;
+  issued_by: string;
+  claimed_at: string | null;
+  created_at: string;
+  updated_at: string;
+};

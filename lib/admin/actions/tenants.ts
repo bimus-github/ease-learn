@@ -18,7 +18,10 @@ import type {
   PaginationParams,
   PaginationResponse,
   TenantFilters,
+  TenantInviteRecord,
 } from "@/lib/admin/types";
+import { TENANT_INVITES_TABLE } from "@/constants/tables";
+import { createHash } from "crypto";
 
 /**
  * Get all tenants with optional filters and pagination
@@ -369,6 +372,71 @@ export async function updateTenant(
       error:
         error instanceof Error ? error.message : "Failed to update tenant",
     };
+  }
+}
+
+export type TenantInviteValidationError =
+  | "not_found"
+  | "revoked"
+  | "claimed"
+  | "expired";
+
+export type TenantInviteValidationResult =
+  | { success: true; invite: TenantInviteRecord }
+  | { success: false; error: TenantInviteValidationError };
+
+/**
+ * Shared helper to validate tenant invite tokens.
+ */
+export async function getValidTenantInvite(
+  token: string,
+): Promise<TenantInviteValidationResult> {
+  if (!token) {
+    return { success: false, error: "not_found" };
+  }
+
+  try {
+    const supabase = getServiceRoleSupabaseClient();
+    const tokenHash = createHash("sha256").update(token).digest("hex");
+
+    const { data: invite, error } = await supabase
+      .from(TENANT_INVITES_TABLE)
+      .select("*")
+      .eq("token_hash", tokenHash)
+      .maybeSingle();
+
+    if (error || !invite) {
+      return { success: false, error: "not_found" };
+    }
+
+    const now = new Date();
+    const expired =
+      invite.expires_at && new Date(invite.expires_at).getTime() < now.getTime();
+
+    if (expired && invite.status === "pending") {
+      await supabase
+        .from(TENANT_INVITES_TABLE)
+        .update({ status: "expired" })
+        .eq("id", invite.id);
+      invite.status = "expired";
+    }
+
+    if (invite.status === "revoked") {
+      return { success: false, error: "revoked" };
+    }
+
+    if (invite.status === "claimed") {
+      return { success: false, error: "claimed" };
+    }
+
+    if (invite.status === "expired" || expired) {
+      return { success: false, error: "expired" };
+    }
+
+    return { success: true, invite: invite as TenantInviteRecord };
+  } catch (error) {
+    console.error("[admin] Failed to validate tenant invite token", error);
+    return { success: false, error: "not_found" };
   }
 }
 

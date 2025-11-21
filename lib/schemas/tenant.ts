@@ -256,6 +256,11 @@ export type EntryContent = z.infer<typeof entryContentSchema>;
 export type TenantBranding = z.infer<typeof tenantBrandingSchema>;
 export type TenantMetadata = z.infer<typeof tenantMetadataSchema>;
 export type Tenant = z.infer<typeof tenantSchema>;
+export type TenantFull = Tenant & {
+  total_students_count: number;
+  total_courses_count: number;
+  storage_used_bytes: number;
+};
 export type CreateTenantInput = z.infer<typeof createTenantSchema>;
 export type UpdateTenantInput = z.infer<typeof updateTenantSchema>;
 export type PublicTenant = z.infer<typeof publicTenantSchema>;

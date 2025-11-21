@@ -8,8 +8,10 @@ import {
   SelectContent,
   SelectItem,
 } from "@/components/ui/select";
-import { getAllTenants } from "@/lib/admin/actions/tenants";
 import { TenantActions } from "@/components/admin/tenant-actions";
+import { TenantInviteButton } from "@/components/admin/tenant-invite-button";
+import { TenantInviteList } from "@/components/admin/tenant-invite-list";
+import { getAllTenantsFullAction } from "../actions/tenant";
 
 const statusConfig: Record<
   string,
@@ -22,7 +24,7 @@ const statusConfig: Record<
 };
 
 export default async function AdminTenantsPage() {
-  const tenantsResult = await getAllTenants();
+  const tenantsResult = await getAllTenantsFullAction();
 
   if (!tenantsResult.success) {
     return (
@@ -42,18 +44,23 @@ export default async function AdminTenantsPage() {
     );
   }
 
-  const tenants = tenantsResult.data.items;
+  const tenants = tenantsResult.data;
 
   return (
     <section className="space-y-8">
       <header className="space-y-2">
-        <p className="text-sm uppercase tracking-wide text-muted-foreground">
-          Tenant Operations
-        </p>
-        <h2 className="text-3xl font-semibold">Tenants</h2>
-        <p className="text-muted-foreground">
-          Manage all platform tenants. View status, perform administrative actions, and monitor key metrics.
-        </p>
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm uppercase tracking-wide text-muted-foreground">
+              Tenant Operations
+            </p>
+            <h2 className="text-3xl font-semibold">Tenants</h2>
+            <p className="text-muted-foreground">
+              Manage all platform tenants. View status, perform administrative actions, and monitor key metrics.
+            </p>
+          </div>
+          <TenantInviteButton />
+        </div>
       </header>
 
       <SearchFilterStub />
@@ -105,6 +112,8 @@ export default async function AdminTenantsPage() {
           </div>
         )}
       </div>
+
+      <TenantInviteList />
 
       <p className="text-sm text-muted-foreground">
         Planned features: tenant creation wizard, advanced filtering, bulk actions, and per-tenant configuration panels.

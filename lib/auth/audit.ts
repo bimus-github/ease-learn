@@ -20,6 +20,11 @@ export type AuditAction =
   | "tenant_reactivated"
   | "tenant_created"
   | "tenant_updated"
+  | "tenant_invite_created"
+  | "tenant_invite_expired"
+  | "tenant_invite_revoked"
+  | "tenant_invite_resent"
+  | "tenant_invite_claimed"
   | "user_suspended"
   | "user_reactivated"
   | "user_role_changed"
@@ -39,7 +44,8 @@ export type ResourceType =
   | "session"
   | "system_settings"
   | "feature_flag"
-  | "branding_settings";
+  | "branding_settings"
+  | "tenant_invite";
 
 /**
  * Payload structure for audit log entries
