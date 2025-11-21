@@ -9,6 +9,8 @@ import {
 import { getAuditLogs } from "@/lib/admin/actions/audit";
 import type { ReactNode } from "react";
 
+export const dynamic = "force-dynamic";
+
 type SettingsSectionProps = {
   title: string;
   description: string;

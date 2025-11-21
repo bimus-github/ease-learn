@@ -53,6 +53,11 @@ export function VerifyEmail() {
   }, [router, supabase]);
 
   const handleResend = async () => {
+    if (!email) {
+      setError("Email address not found. Please refresh the page.");
+      return;
+    }
+
     setIsLoading(true);
     setError(null);
     setSuccess(false);
@@ -60,7 +65,7 @@ export function VerifyEmail() {
     try {
       const { error: resendError } = await supabase.auth.resend({
         type: "signup",
-        email: email || undefined,
+        email: email,
       });
 
       if (resendError) {

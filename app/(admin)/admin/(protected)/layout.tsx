@@ -22,7 +22,7 @@ export default async function AdminProtectedLayout({
   const authResult = await requireSuperAdminAuth();
 
   if ("error" in authResult) {
-    redirect(authResult.redirect);
+    redirect(authResult.redirect as any);
   }
 
   const { user } = authResult;

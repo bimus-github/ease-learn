@@ -404,6 +404,24 @@ export async function POST(request: NextRequest) {
           },
           redirectTo: "/teachers/mfa-setup",
         });
+    } catch (error) {
+      console.error("[invite] Error updating auth user", error);
+      await logAuthEvent({
+        actorId: userRecord.id,
+        action: "teacher_invite_acceptance_failure",
+        resourceType: "user",
+        resourceId: userRecord.id,
+        payload: {
+          ...requestMetadata,
+          error: error instanceof Error ? error.message : "Unknown error",
+          error_code: "auth_update_error",
+        },
+      });
+      return NextResponse.json(
+        { success: false, error: "Failed to update account" },
+        { status: 500 }
+      );
+    }
   } catch (error) {
     console.error("[invite] Unexpected error accepting invite", error);
     return NextResponse.json(

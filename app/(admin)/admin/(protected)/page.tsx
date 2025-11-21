@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { adminRoutes } from "@/constants/routes";
 
+export const dynamic = "force-dynamic";
+
 const adminSections = [
   {
     title: "Dashboard",

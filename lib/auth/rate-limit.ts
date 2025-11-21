@@ -21,7 +21,8 @@ export function getClientIp(request: NextRequest): string {
     return realIp;
   }
 
-  return request.ip ?? "unknown";
+  // Fallback to unknown if no IP headers are present
+  return "unknown";
 }
 
 /**

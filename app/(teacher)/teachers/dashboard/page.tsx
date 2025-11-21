@@ -13,7 +13,7 @@ export default async function TeacherDashboard() {
   
   // Handle all error types
   if ("error" in authResult) {
-    redirect(authResult.redirect);
+    redirect(authResult.redirect as any);
   }
   return (
     <section className="space-y-6">

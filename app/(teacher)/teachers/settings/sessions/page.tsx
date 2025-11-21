@@ -12,7 +12,7 @@ export default async function SessionsPage() {
 
   // Handle all error types
   if ("error" in authResult) {
-    redirect(authResult.redirect);
+    redirect(authResult.redirect as any);
   }
 
   return (

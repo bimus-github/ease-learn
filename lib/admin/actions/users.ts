@@ -348,9 +348,11 @@ export async function resetUserMFA(
 
       if (factorsError) {
         console.warn("[admin] Failed to list MFA factors", factorsError);
-      } else if (factors && factors.totp) {
+      } else if (factors && factors.factors) {
         // Delete all TOTP factors
-        for (const factor of factors.totp) {
+        // Use type assertion to access type property
+        const totpFactors = factors.factors.filter((f) => (f as any).type === "totp");
+        for (const factor of totpFactors) {
           const { error: deleteError } = await supabase.auth.admin.mfa.deleteFactor({
             id: factor.id,
             userId,

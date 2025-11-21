@@ -15,13 +15,14 @@ export default async function MfaSetupPage() {
   
   // Redirect if unauthorized, invalid role, suspended, tenant not owned, or email not verified
   if (
-    authResult.error === "unauthorized" ||
-    authResult.error === "invalid-role" ||
-    authResult.error === "user-suspended" ||
-    authResult.error === "tenant-not-owned" ||
-    authResult.error === "email-not-verified"
+    "error" in authResult &&
+    (authResult.error === "unauthorized" ||
+      authResult.error === "invalid-role" ||
+      authResult.error === "user-suspended" ||
+      authResult.error === "tenant-not-owned" ||
+      authResult.error === "email-not-verified")
   ) {
-    redirect(authResult.redirect);
+    redirect(authResult.redirect as any);
   }
   
   // If MFA is already configured, redirect to dashboard

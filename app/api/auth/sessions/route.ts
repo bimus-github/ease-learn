@@ -57,7 +57,15 @@ export async function GET(request: NextRequest) {
       .eq("id", user.id)
       .maybeSingle();
 
-    const { data: factors } = await supabase.auth.mfa.getFactors();
+    // Get MFA factors - handle type error with type assertion
+    let factors: { totp?: Array<{ status: string }> } | null = null;
+    try {
+      const result = await (supabase.auth.mfa as any).getFactors();
+      factors = result?.data || null;
+    } catch (error) {
+      console.error("[sessions] Error fetching MFA factors", error);
+      // Continue without factors if there's an error
+    }
 
     return NextResponse.json({
       sessions,

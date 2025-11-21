@@ -39,7 +39,7 @@ export default async function StudentLayout({ children }: StudentLayoutProps) {
     // Only redirect if we're NOT on a tenant subdomain (e.g., direct access to /teachername)
     // If we're on a tenant subdomain, let the page show the login UI
     if (!tenant.tenantSlug) {
-      redirect(authResult.redirect);
+      redirect(authResult.redirect as any);
     }
     // Otherwise, continue to render children (which will show login prompt)
   }

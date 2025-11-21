@@ -3,6 +3,8 @@ import { SummaryCard } from "@/components/teacher/summary-card";
 import { getAllTenants } from "@/lib/admin/actions/tenants";
 import { getAllUsers } from "@/lib/admin/actions/users";
 
+export const dynamic = "force-dynamic";
+
 type DashboardSectionProps = {
   title: string;
   description: string;

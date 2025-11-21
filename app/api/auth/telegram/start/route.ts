@@ -132,7 +132,7 @@ export async function POST(request: NextRequest) {
         ...requestMetadata,
         nonce,
         redirect_path: parsed.data.redirectPath,
-        tenant_slug: tenantResolution.tenantSlug,
+        tenant_slug: tenantResolution.tenantSlug ?? undefined,
       },
     });
 

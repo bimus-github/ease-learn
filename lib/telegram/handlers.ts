@@ -115,7 +115,7 @@ export function setupCallbackHandlers() {
   const bot = getBot();
 
   bot.action(/^approve:(.+)$/, async (ctx: Context) => {
-    const match = ctx.match;
+    const match = (ctx as any).match;
     if (!match || !Array.isArray(match) || match.length < 2) {
       await ctx.answerCbQuery("Error: Invalid request.");
       return;
@@ -234,7 +234,7 @@ export function setupCallbackHandlers() {
   });
 
   bot.action(/^cancel:(.+)$/, async (ctx: Context) => {
-    const match = ctx.match;
+    const match = (ctx as any).match;
     if (!match || !Array.isArray(match) || match.length < 2) {
       await ctx.answerCbQuery("Error: Invalid request.");
       return;

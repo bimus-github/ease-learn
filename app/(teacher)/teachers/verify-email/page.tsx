@@ -15,12 +15,13 @@ export default async function VerifyEmailPage() {
 
   // Redirect if unauthorized or invalid role
   if (
-    authResult.error === "unauthorized" ||
-    authResult.error === "invalid-role" ||
-    authResult.error === "user-suspended" ||
-    authResult.error === "tenant-not-owned"
+    "error" in authResult &&
+    (authResult.error === "unauthorized" ||
+      authResult.error === "invalid-role" ||
+      authResult.error === "user-suspended" ||
+      authResult.error === "tenant-not-owned")
   ) {
-    redirect(authResult.redirect);
+    redirect(authResult.redirect as any);
   }
 
   // If email is already verified, redirect to dashboard

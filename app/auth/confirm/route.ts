@@ -19,13 +19,13 @@ export async function GET(request: NextRequest) {
     });
     if (!error) {
       // redirect user to specified redirect URL or teacher dashboard
-      redirect(next || teacherRoutes.dashboard);
+      redirect((next || teacherRoutes.dashboard) as any);
     } else {
       // redirect the user to an error page with some instructions
-      redirect(`${authRoutes.error}?error=${error?.message}`);
+      redirect(`${authRoutes.error}?error=${error?.message}` as any);
     }
   }
 
   // redirect the user to an error page with some instructions
-  redirect(`${authRoutes.error}?error=No token hash or type`);
+  redirect(`${authRoutes.error}?error=No token hash or type` as any);
 }

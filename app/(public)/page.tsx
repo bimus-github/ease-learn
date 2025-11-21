@@ -16,7 +16,7 @@ export default async function PublicHome() {
   // This prevents redirect loops
   if (tenant.tenantSlug) {
     // Use a relative redirect to maintain the subdomain
-    redirect(`/${tenant.tenantSlug}`);
+    redirect(`/${tenant.tenantSlug}` as any);
   }
 
   return (
